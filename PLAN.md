@@ -66,14 +66,14 @@ A portfolio-grade AI/ML semantic search and retrieval-augmented generation (RAG)
   - [x] Run `./verify.sh` and ensure passing
   - [x] Commit milestone (`feat: ...`)
 
-- [ ] **Milestone 7: EDA Notebook, Dockerfile, CI, and Documentation**
-  - [ ] Create `notebooks/01_eda_and_retrieval_analysis.ipynb`
-  - [ ] Create `Dockerfile`
-  - [ ] Create `.github/workflows/ci.yml`
-  - [ ] Create portfolio-grade `README.md` with Mermaid diagram, real metric results, and architecture
-  - [ ] Run `./verify.sh` until output: `ALL CHECKS PASSED`
-  - [ ] Commit milestone (`docs: ...`)
+- [x] **Milestone 7: EDA Notebook, Dockerfile, CI, and Documentation**
+  - [x] Create `notebooks/01_eda_and_retrieval_analysis.ipynb`
+  - [x] Create `Dockerfile`
+  - [x] Create `.github/workflows/ci.yml`
+  - [x] Create portfolio-grade `README.md` with Mermaid diagram, real metric results, and architecture
+  - [x] Run `./verify.sh` until output: `ALL CHECKS PASSED`
+  - [x] Commit milestone (`docs: ...`)
 
-- [ ] **Milestone 8: Final Review & Git Push**
-  - [ ] Check git status and clean working tree
-  - [ ] Verify git remote origin and push
+- [x] **Milestone 8: Final Review & Git Push**
+  - [x] Check git status and clean working tree
+  - [x] Verify git remote origin and push
