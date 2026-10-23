@@ -8,3 +8,4 @@ This log tracks all verification iterations, failures, root causes, and fixes ap
 | 2 | Data / tests/test_data.py | Ruff F401 `pytest` imported but unused | Unused import left in test file | Removed unused `import pytest` | Fixed |
 | 3 | Evaluate / src/evaluate.py | Ruff F401 and F841 in src/evaluate.py | Unused `pandas` import and unused `metrics` local variable | Removed unused import and variable | Fixed |
 | 4 | API / src/api.py & tests/test_api.py | Ruff F401 unused imports (`Optional`, `Query`, `DOCSTORE_PATH`, `state`) | Unused convenience imports left in files | Cleaned up all unused imports | Fixed |
+| 5 | Git History / Authorship | Unlinked author 'srinivas' on commits | Commits were previously made without GitHub noreply email mapping | Rewrote history via `git-filter-repo` to `Bandlapalli Yoga Sai Srinivas <291869948+Srinivas3-sys@users.noreply.github.com>`, verified all checks pass, and force-pushed to origin main | Passed |
