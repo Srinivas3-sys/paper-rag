@@ -1,6 +1,6 @@
 # paper-rag: Semantic Search & Retrieval-Augmented Q&A over arXiv Abstracts
 
-[![CI Pipeline](https://github.com/srinivas/paper-rag/actions/workflows/ci.yml/badge.svg)](https://github.com/srinivas/paper-rag/actions)
+[![CI Pipeline](https://github.com/Srinivas3-sys/paper-rag/actions/workflows/ci.yml/badge.svg)](https://github.com/Srinivas3-sys/paper-rag/actions)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688.svg?logo=fastapi)](https://fastapi.tiangolo.com)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-EE4C2C.svg?logo=pytorch)](https://pytorch.org)
@@ -91,7 +91,7 @@ All three retrieval strategies were rigorously evaluated on a **200-query benchm
 
 ```bash
 # Clone the repository
-git clone https://github.com/srinivas/paper-rag.git
+git clone https://github.com/Srinivas3-sys/paper-rag.git
 cd paper-rag
 
 # Install dependencies
