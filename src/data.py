@@ -22,9 +22,13 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 logger = logging.getLogger(__name__)
 
 
-def clean_text(text: Optional[str]) -> str:
+def clean_text(text: Any) -> str:
     """Normalize text by stripping excess whitespace and newlines."""
-    if not text or not isinstance(text, str):
+    if not text:
+        return ""
+    if isinstance(text, (list, tuple)):
+        text = " ".join(str(item) for item in text)
+    elif not isinstance(text, str):
         return ""
     # Replace multiple whitespace/newlines with single space
     cleaned = re.sub(r"\s+", " ", text)
