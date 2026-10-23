@@ -46,12 +46,12 @@ A portfolio-grade AI/ML semantic search and retrieval-augmented generation (RAG)
   - [x] Run `./verify.sh` and ensure passing
   - [x] Commit milestone (`feat: ...`)
 
-- [ ] **Milestone 4: Evaluation Benchmark & Metrics**
-  - [ ] Implement `src/evaluate.py` (Recall@5, Recall@10, MRR calculation)
-  - [ ] Run evaluation on real indexed dataset
-  - [ ] Generate `results/metrics.md` and `results/metrics.png`
-  - [ ] Run `./verify.sh` and verify metrics are real and non-empty
-  - [ ] Commit milestone (`feat: ...`)
+- [x] **Milestone 4: Evaluation Benchmark & Metrics**
+  - [x] Implement `src/evaluate.py` (Recall@5, Recall@10, MRR calculation)
+  - [x] Run evaluation on real indexed dataset
+  - [x] Generate `results/metrics.md` and `results/metrics.png`
+  - [x] Run `./verify.sh` and verify metrics are real and non-empty
+  - [x] Commit milestone (`feat: ...`)
 
 - [ ] **Milestone 5: Answer Generation & Citations**
   - [ ] Implement `src/generator.py` with `google/flan-t5-base`
