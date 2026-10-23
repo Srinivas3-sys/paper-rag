@@ -1,7 +1,5 @@
 """Evaluation benchmark comparing BM25, Dense FAISS, and Hybrid retrievers."""
 
-import argparse
-import json
 import logging
 import time
 from pathlib import Path
@@ -10,11 +8,8 @@ from typing import Any, Dict, List
 import matplotlib.pyplot as plt
 import numpy as np
 
-from src.config import (
-    EVAL_DATA_PATH,
-    RESULTS_DIR,
-)
-from src.retrieval import BM25Retriever, DenseRetriever, HybridRetriever
+from src.config import RESULTS_DIR
+from src.evaluate_benchmark import main
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
@@ -173,49 +168,6 @@ def plot_metrics_chart(
     plt.savefig(output_path)
     plt.close()
     logger.info(f"Saved metrics plot to {output_path}")
-
-
-def main():
-    parser = argparse.ArgumentParser(description="Evaluate BM25, Dense, and Hybrid retrievers.")
-    parser.add_argument("--eval-data", type=str, default=str(EVAL_DATA_PATH), help="Path to evaluation queries")
-    parser.add_argument("--limit", type=int, default=None, help="Optional limit on number of eval queries")
-    args = parser.parse_args()
-
-    logger.info(f"Loading evaluation queries from {args.eval_data}...")
-    with open(args.eval_data, "r", encoding="utf-8") as f:
-        eval_queries = json.load(f)
-
-    if args.limit:
-        eval_queries = eval_queries[: args.limit]
-
-    logger.info(f"Evaluating {len(eval_queries)} queries across BM25, Dense, and Hybrid...")
-
-    # Load retrievers
-    bm25 = BM25Retriever()
-    dense = DenseRetriever()
-    hybrid = HybridRetriever(bm25_retriever=bm25, dense_retriever=dense)
-
-    logger.info("Evaluating BM25...")
-    bm25_metrics = evaluate_retriever(bm25, eval_queries)
-    logger.info(f"BM25 Metrics: {bm25_metrics}")
-
-    logger.info("Evaluating Dense (FAISS)...")
-    dense_metrics = evaluate_retriever(dense, eval_queries)
-    logger.info(f"Dense Metrics: {dense_metrics}")
-
-    logger.info("Evaluating Hybrid (RRF)...")
-    hybrid_metrics = evaluate_retriever(hybrid, eval_queries)
-    logger.info(f"Hybrid Metrics: {hybrid_metrics}")
-
-    metrics_by_model = {
-        "BM25 Baseline": bm25_metrics,
-        "Dense (MiniLM + FAISS)": dense_metrics,
-        "Hybrid (RRF Fusion)": hybrid_metrics,
-    }
-
-    generate_metrics_markdown(metrics_by_model, num_queries=len(eval_queries))
-    plot_metrics_chart(metrics_by_model)
-    logger.info("Evaluation complete and reports generated.")
 
 
 if __name__ == "__main__":
