@@ -13,13 +13,13 @@ def main():
     df = pd.read_parquet(RAW_DATA_PATH)
     n = len(df)
     target_ids = df["id"].tolist()
-    
+
     print(f"Streaming first {n} records from Hugging Face...")
     ds = load_dataset("gfissore/arxiv-abstracts-2021", split="train", streaming=True)
-    
+
     id_to_cats = {}
     pbar = tqdm(total=n, desc="Streaming categories")
-    
+
     for raw in ds:
         parsed = parse_arxiv_record(raw)
         if parsed:
@@ -30,18 +30,18 @@ def main():
             if len(id_to_cats) >= n:
                 break
     pbar.close()
-    
+
     # Update df categories
     new_cats = [id_to_cats.get(pid, "") for pid in target_ids]
     df["categories"] = new_cats
-    
+
     non_empty = sum(1 for c in new_cats if c.strip())
     print(f"Categories restored: {non_empty}/{n} non-empty ({non_empty/n*100:.1f}%)")
-    
+
     # Save back
     df.to_parquet(RAW_DATA_PATH, index=False)
     print(f"Saved updated parquet to {RAW_DATA_PATH}")
-    
+
     df.to_parquet(DOCSTORE_PATH, index=False)
     print(f"Saved updated docstore to {DOCSTORE_PATH}")
     print(f"Finished in {time.time()-t0:.2f}s")
