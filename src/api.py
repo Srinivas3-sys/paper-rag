@@ -1,7 +1,9 @@
 """FastAPI production service exposing /health, /search, and /ask endpoints."""
 
+import asyncio
 from contextlib import asynccontextmanager
 import logging
+import time
 from typing import Any, Dict, List
 
 from fastapi import FastAPI, HTTPException
@@ -48,7 +50,10 @@ async def lifespan(app: FastAPI):
         state["device"] = dense.device
         logger.info(f"Loaded paper-rag indices ({state['doc_count']} docs) onto device: {state['device']}")
     except Exception as e:
-        logger.warning(f"Could not load full models at startup (indices may need building): {e}")
+        logger.warning(
+            f"Indices not available at startup ({e}). If running in Docker, ensure indices are mounted "
+            "(-v $(pwd)/indices:/app/indices) or built using 'make index'."
+        )
         state["bm25"] = None
         state["dense"] = None
         state["reranker"] = None
@@ -73,7 +78,7 @@ app = FastAPI(
 
 # Pydantic schemas
 class SearchRequest(BaseModel):
-    query: str = Field(..., description="Technical search query or natural language question")
+    query: str = Field(..., min_length=2, max_length=500, description="Technical search query or natural language question")
     retriever_type: str = Field(default="hybrid", description="Retriever architecture: 'bm25', 'dense', or 'hybrid'")
     top_k: int = Field(default=DEFAULT_TOP_K, ge=1, le=50, description="Number of results to retrieve")
     rerank: bool = Field(default=False, description="Enable cross-encoder reranking over top candidates")
@@ -98,11 +103,12 @@ class SearchResponse(BaseModel):
 
 
 class AskRequest(BaseModel):
-    question: str = Field(..., description="Research question to ask over arXiv literature")
+    question: str = Field(..., min_length=2, max_length=500, description="Research question to ask over arXiv literature")
     retriever_type: str = Field(default="hybrid", description="Retriever to select: 'bm25', 'dense', or 'hybrid'")
-    top_k: int = Field(default=DEFAULT_TOP_K, ge=1, le=10, description="Number of supporting context papers")
+    top_k: int = Field(default=DEFAULT_TOP_K, ge=1, le=20, description="Number of supporting context papers")
     temperature: float = Field(default=0.0, ge=0.0, le=1.0, description="LLM sampling temperature")
     rerank: bool = Field(default=False, description="Enable cross-encoder reranking over retrieved papers")
+    timeout_seconds: float = Field(default=30.0, ge=1.0, le=120.0, description="Maximum generation timeout in seconds")
 
 
 class CitationItem(BaseModel):
@@ -147,8 +153,11 @@ def health():
 
 
 @app.post("/search", response_model=SearchResponse)
-def search(req: SearchRequest):
+async def search(req: SearchRequest):
     """Retrieve top-k relevant papers matching the query using BM25, dense, or hybrid retrieval."""
+    if not req.query.strip():
+        raise HTTPException(status_code=400, detail="Search query cannot be empty or blank whitespace.")
+
     retriever_type = req.retriever_type.lower()
     if retriever_type not in ["bm25", "dense", "hybrid"]:
         raise HTTPException(
@@ -164,26 +173,45 @@ def search(req: SearchRequest):
                 retriever_type=retriever_type,
                 bm25_retriever=state.get("bm25"),
                 dense_retriever=state.get("dense"),
+                reranker=state.get("reranker"),
             )
         except Exception as e:
-            raise HTTPException(status_code=503, detail=f"Retriever indices not available: {e}")
+            raise HTTPException(
+                status_code=503,
+                detail=f"Retriever indices not available: {e}. Please build indices or mount volumes.",
+            )
 
+    t0 = time.perf_counter()
     if retriever_type == "hybrid":
-        results = retriever.retrieve(req.query, top_k=req.top_k, rerank=req.rerank)
+        results = await asyncio.to_thread(retriever.retrieve, req.query, top_k=req.top_k, rerank=req.rerank)
     else:
-        results = retriever.retrieve(req.query, top_k=req.top_k)
+        results = await asyncio.to_thread(retriever.retrieve, req.query, top_k=req.top_k)
+    latency_ms = (time.perf_counter() - t0) * 1000
+
+    logger.info(
+        "Search completed | query=%r | retriever=%s | rerank=%s | top_k=%d | docs=%d | latency_ms=%.2f",
+        req.query,
+        retriever_type,
+        req.rerank,
+        req.top_k,
+        len(results),
+        latency_ms,
+    )
 
     return SearchResponse(
         query=req.query,
         retriever_type=retriever_type,
         count=len(results),
-        results=results,
+        results=[DocumentItem(**r) for r in results],
     )
 
 
 @app.post("/ask", response_model=AskResponse)
-def ask(req: AskRequest):
+async def ask(req: AskRequest):
     """Perform RAG Q&A: retrieve relevant arXiv abstracts and generate an answer with inline citations."""
+    if not req.question.strip():
+        raise HTTPException(status_code=400, detail="Question cannot be empty or blank whitespace.")
+
     retriever_type = req.retriever_type.lower()
     if retriever_type not in ["bm25", "dense", "hybrid"]:
         raise HTTPException(
@@ -198,9 +226,13 @@ def ask(req: AskRequest):
                 retriever_type=retriever_type,
                 bm25_retriever=state.get("bm25"),
                 dense_retriever=state.get("dense"),
+                reranker=state.get("reranker"),
             )
         except Exception as e:
-            raise HTTPException(status_code=503, detail=f"Retriever indices not available: {e}")
+            raise HTTPException(
+                status_code=503,
+                detail=f"Retriever indices not available: {e}. Please build indices or mount volumes.",
+            )
 
     generator = state.get("generator")
     if generator is None:
@@ -210,19 +242,47 @@ def ask(req: AskRequest):
         except Exception as e:
             raise HTTPException(status_code=503, detail=f"Generator model not available: {e}")
 
+    t0 = time.perf_counter()
     if retriever_type == "hybrid":
-        retrieved_docs = retriever.retrieve(req.question, top_k=req.top_k, rerank=req.rerank)
+        retrieved_docs = await asyncio.to_thread(retriever.retrieve, req.question, top_k=req.top_k, rerank=req.rerank)
     else:
-        retrieved_docs = retriever.retrieve(req.question, top_k=req.top_k)
-    response = generator.generate_answer(
-        question=req.question,
-        retrieved_docs=retrieved_docs,
-        temperature=req.temperature,
+        retrieved_docs = await asyncio.to_thread(retriever.retrieve, req.question, top_k=req.top_k)
+    retrieval_ms = (time.perf_counter() - t0) * 1000
+
+    t1 = time.perf_counter()
+    try:
+        response = await asyncio.wait_for(
+            asyncio.to_thread(
+                generator.generate_answer,
+                question=req.question,
+                retrieved_docs=retrieved_docs,
+                temperature=req.temperature,
+            ),
+            timeout=req.timeout_seconds,
+        )
+    except asyncio.TimeoutError:
+        logger.error("Generation timed out after %.1f seconds for question: %r", req.timeout_seconds, req.question)
+        raise HTTPException(
+            status_code=504,
+            detail=f"Generation timed out after {req.timeout_seconds} seconds.",
+        )
+    generation_ms = (time.perf_counter() - t1) * 1000
+    total_ms = (time.perf_counter() - t0) * 1000
+
+    logger.info(
+        "Ask completed | question=%r | retriever=%s | rerank=%s | docs=%d | retrieval_ms=%.2f | generation_ms=%.2f | total_ms=%.2f",
+        req.question,
+        retriever_type,
+        req.rerank,
+        len(retrieved_docs),
+        retrieval_ms,
+        generation_ms,
+        total_ms,
     )
 
     return AskResponse(
         question=response["question"],
         answer=response["answer"],
-        citations=response["citations"],
-        retrieved_docs=response["retrieved_docs"],
+        citations=[CitationItem(**c) for c in response["citations"]],
+        retrieved_docs=[DocumentItem(**d) for d in response["retrieved_docs"]],
     )

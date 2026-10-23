@@ -190,6 +190,7 @@ def ablate_rrf_parameters(
                 best_mrr = dev_mrr
                 best_setting = entry
 
+    assert best_setting is not None, "best_setting cannot be None"
     logger.info(f"Optimal RRF configuration on dev split: k={best_setting['rrf_k']}, alpha={best_setting['alpha']:.1f} (MRR={best_mrr:.4f})")
     return {
         "grid": results_grid,

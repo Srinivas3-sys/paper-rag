@@ -6,7 +6,7 @@ import pandas as pd
 from rank_bm25 import BM25Okapi
 
 from src.index import tokenize_text
-from src.retrieval import BM25Retriever, DenseRetriever, HybridRetriever
+from src.retrieval import BaseRetriever, BM25Retriever, DenseRetriever, HybridRetriever
 
 
 def test_tokenize_text():
@@ -164,4 +164,71 @@ def test_cross_encoder_reranker_and_hybrid():
     assert res_reranked[0]["id"] == "p1"
     assert res_reranked[0]["retriever"] == "cross-encoder"
     assert res_reranked[0]["score"] == 3.5
+
+
+def test_rrf_hand_computed_math():
+    """Verify Reciprocal Rank Fusion arithmetic against hand-computed analytical ground truth.
+
+    Scenario:
+    - 3 candidate documents: D1, D2, D3
+    - Dense ranks: D1=1, D2=2, D3=3
+    - BM25 ranks: D2=1, D1=2 (D3 absent from BM25)
+    - Hyperparameters: k=60, alpha=0.6
+
+    Hand calculation:
+    - RRF_dense(r) = 0.6 / (60 + r)
+    - RRF_bm25(r)  = 0.4 / (60 + r)
+    - Score(D1) = 0.6 / 61 + 0.4 / 62 = 0.00983606557 + 0.00645161290 = 0.01628767847
+    - Score(D2) = 0.6 / 62 + 0.4 / 61 = 0.00967741935 + 0.00655737705 = 0.01623479640
+    - Score(D3) = 0.6 / 63 + 0.0      = 0.00952380952
+    """
+    records = [
+        {"id": "D1", "title": "Doc 1", "abstract": "Abs 1", "authors": "A", "categories": "c", "combined_text": "t1"},
+        {"id": "D2", "title": "Doc 2", "abstract": "Abs 2", "authors": "B", "categories": "c", "combined_text": "t2"},
+        {"id": "D3", "title": "Doc 3", "abstract": "Abs 3", "authors": "C", "categories": "c", "combined_text": "t3"},
+    ]
+    df = pd.DataFrame(records)
+
+    class DummyDense(BaseRetriever):
+        def retrieve(self, query: str, top_k: int = 5, **kwargs):
+            return [
+                {"id": "D1", "title": "Doc 1", "abstract": "Abs 1", "authors": "A", "categories": "c", "score": 0.9, "rank": 1, "retriever": "dense"},
+                {"id": "D2", "title": "Doc 2", "abstract": "Abs 2", "authors": "B", "categories": "c", "score": 0.8, "rank": 2, "retriever": "dense"},
+                {"id": "D3", "title": "Doc 3", "abstract": "Abs 3", "authors": "C", "categories": "c", "score": 0.7, "rank": 3, "retriever": "dense"},
+            ]
+
+    class DummyBM25(BaseRetriever):
+        def retrieve(self, query: str, top_k: int = 5, **kwargs):
+            return [
+                {"id": "D2", "title": "Doc 2", "abstract": "Abs 2", "authors": "B", "categories": "c", "score": 10.0, "rank": 1, "retriever": "bm25"},
+                {"id": "D1", "title": "Doc 1", "abstract": "Abs 1", "authors": "A", "categories": "c", "score": 8.0, "rank": 2, "retriever": "bm25"},
+            ]
+
+    dense_mock = DummyDense()
+    dense_mock.docstore = df  # type: ignore[attr-defined]
+    bm25_mock = DummyBM25()
+    bm25_mock.docstore = df  # type: ignore[attr-defined]
+
+    hybrid = HybridRetriever(
+        bm25_retriever=bm25_mock,  # type: ignore[arg-type]
+        dense_retriever=dense_mock,  # type: ignore[arg-type]
+        alpha=0.6,
+        rrf_k=60,
+        parallel=False,
+    )
+
+    results = hybrid.retrieve("query", top_k=3)
+    assert len(results) == 3
+    assert results[0]["id"] == "D1"
+    assert results[1]["id"] == "D2"
+    assert results[2]["id"] == "D3"
+
+    expected_d1 = (0.6 / 61.0) + (0.4 / 62.0)
+    expected_d2 = (0.6 / 62.0) + (0.4 / 61.0)
+    expected_d3 = (0.6 / 63.0)
+
+    assert abs(results[0]["score"] - expected_d1) < 1e-6
+    assert abs(results[1]["score"] - expected_d2) < 1e-6
+    assert abs(results[2]["score"] - expected_d3) < 1e-6
+
 

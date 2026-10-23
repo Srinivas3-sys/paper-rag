@@ -25,6 +25,7 @@ class DummyModel:
         class Config:
             is_encoder_decoder = True
         self.config = Config()
+        self.last_kwargs = {}
 
     def to(self, device):
         return self
@@ -33,6 +34,7 @@ class DummyModel:
         return self
 
     def generate(self, **kwargs):
+        self.last_kwargs = kwargs
         return torch.tensor([[10, 20, 30]])
 
 
@@ -165,3 +167,22 @@ def test_generate_answer_mock():
     assert len(response["citations"]) == 1
     assert response["citations"][0]["paper_id"] == "doc_101"
     assert response["abstained"] is False
+
+
+def test_temperature_handling():
+    mock_tok = DummyTokenizer()
+    mock_mod = DummyModel()
+    gen = ArxivRAGGenerator(device="cpu", tokenizer=mock_tok, model=mock_mod)
+    docs = [{"id": "d1", "title": "T", "abstract": "A", "score": 0.9}]
+
+    # 1. Greedy decoding with temperature=0.0
+    gen.generate_answer("Query", docs, temperature=0.0)
+    assert mock_mod.last_kwargs["do_sample"] is False
+    assert "temperature" not in mock_mod.last_kwargs
+
+    # 2. Stochastic sampling with temperature=0.7
+    gen.generate_answer("Query", docs, temperature=0.7)
+    assert mock_mod.last_kwargs["do_sample"] is True
+    assert mock_mod.last_kwargs["temperature"] == 0.7
+    assert mock_mod.last_kwargs["top_p"] == 0.9
+

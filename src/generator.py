@@ -40,7 +40,8 @@ class ArxivRAGGenerator:
         model: Optional[Any] = None,
         abstain_threshold: float = 0.0,
     ):
-        self.model_name = model_name or os.getenv("GENERATOR_MODEL_NAME", GENERATOR_MODEL_NAME)
+        resolved_name = model_name or os.getenv("GENERATOR_MODEL_NAME", GENERATOR_MODEL_NAME) or "google/flan-t5-base"
+        self.model_name: str = str(resolved_name)
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
         self.abstain_threshold = abstain_threshold
 
@@ -63,7 +64,7 @@ class ArxivRAGGenerator:
                 self.model = AutoModelForCausalLM.from_pretrained(
                     self.model_name,
                     torch_dtype=torch.float32 if self.device == "cpu" else torch.float16,
-                ).to(self.device)
+                ).to(self.device)  # type: ignore[arg-type]
             self.model.eval()
 
     def format_context_prompt(

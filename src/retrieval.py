@@ -34,7 +34,7 @@ class BaseRetriever(ABC):
     """Abstract base class for paper retrieval."""
 
     @abstractmethod
-    def retrieve(self, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
+    def retrieve(self, query: str, top_k: int = 5, **kwargs: Any) -> List[Dict[str, Any]]:
         """Retrieve top_k documents for a search query."""
         pass
 
@@ -69,6 +69,7 @@ class BM25Retriever(BaseRetriever):
             if docstore is None:
                 logger.info(f"Loading docstore from {docstore_path}...")
                 self.docstore = pd.read_parquet(docstore_path)
+            assert self.docstore is not None, "docstore cannot be None"
             self.doc_ids = self.docstore["id"].tolist()
 
             # Attempt bm25s loading first if preferred and available
@@ -91,11 +92,14 @@ class BM25Retriever(BaseRetriever):
                 self.bm25 = data["bm25"]
                 self.backend = "rank_bm25"
 
+        assert self.docstore is not None, "docstore cannot be None"
         self._id_to_idx = {pid: i for i, pid in enumerate(self.docstore["id"])}
 
-    def retrieve(self, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
+    def retrieve(self, query: str, top_k: int = 5, **kwargs: Any) -> List[Dict[str, Any]]:
         if not query.strip():
             return []
+
+        assert self.docstore is not None, "docstore cannot be None"
 
         if self.backend == "bm25s" and self.bm25s_model is not None:
             try:
@@ -131,6 +135,7 @@ class BM25Retriever(BaseRetriever):
         if not tokens:
             return []
 
+        assert self.bm25 is not None, "BM25 model is uninitialized"
         scores = self.bm25.get_scores(tokens)
         top_indices = np.argsort(scores)[::-1][:top_k]
 
@@ -179,9 +184,11 @@ class DenseRetriever(BaseRetriever):
             logger.info(f"Loading docstore from {docstore_path}...")
             self.docstore = pd.read_parquet(docstore_path)
 
-    def retrieve(self, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
+    def retrieve(self, query: str, top_k: int = 5, **kwargs: Any) -> List[Dict[str, Any]]:
         if not query.strip():
             return []
+
+        assert self.docstore is not None, "docstore cannot be None"
 
         # Generate query vector with unit normalization for cosine similarity
         query_vec = self.model.encode(
@@ -240,7 +247,7 @@ class CrossEncoderReranker:
         if not candidates or not query.strip():
             return candidates[:top_k]
 
-        pairs = [[query, f"Title: {c.get('title', '')}\nAbstract: {c.get('abstract', '')}"] for c in candidates]
+        pairs = [(query, f"Title: {c.get('title', '')}\nAbstract: {c.get('abstract', '')}") for c in candidates]
         scores = self.model.predict(pairs)
 
         reranked = []
@@ -284,6 +291,7 @@ class HybridRetriever(BaseRetriever):
         candidate_k: int = 50,
         rerank: bool = False,
         rerank_candidates: int = 30,
+        **kwargs: Any,
     ) -> List[Dict[str, Any]]:
         """Retrieve using Reciprocal Rank Fusion (RRF) over dense and sparse candidates."""
         if self.parallel and self._executor is not None:

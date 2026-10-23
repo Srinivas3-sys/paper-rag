@@ -61,7 +61,7 @@ class NLIChecker:
             pred_idx = torch.argmax(probs).item()
 
         labels = ["contradiction", "neutral", "entailment"]
-        pred_label = labels[pred_idx]
+        pred_label = labels[int(pred_idx)]
         entail_prob = float(probs[2])
         is_entailed = (pred_idx == 2) or (entail_prob >= 0.50)
         return is_entailed, pred_label, entail_prob
