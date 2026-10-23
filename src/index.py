@@ -55,14 +55,14 @@ def build_bm25_index(df: pd.DataFrame, output_path=BM25_INDEX_PATH) -> BM25Okapi
     """Build and serialize BM25Okapi index on paper abstracts and titles."""
     logger.info(f"Tokenizing {len(df)} documents for BM25...")
     tokenized_corpus = [tokenize_text(text) for text in df["combined_text"]]
-    
+
     logger.info("Initializing BM25Okapi model...")
     bm25 = BM25Okapi(tokenized_corpus)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "wb") as f:
         pickle.dump({"bm25": bm25, "doc_ids": df["id"].tolist()}, f)
-    
+
     logger.info(f"BM25 index saved to {output_path}")
     return bm25
 

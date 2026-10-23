@@ -28,7 +28,7 @@ Quantitative comparison of retrieval models evaluated on **200 test queries** ov
 3. **Hybrid Retriever (Reciprocal Rank Fusion)**:
    - Synthesizes the complementary strengths of lexical precision and semantic embeddings.
    - RRF provides robust rank fusion without requiring fragile score-scale calibration between unbounded BM25 scores and cosine similarities.
-   - Achieves the highest Recall@10 and competitive MRR across the benchmark.
+   - Achieves performance comparable to BM25 within statistical margin of error (+0.001 MRR delta) with higher latency overhead (71.44 ms).
 
 ## Visualization
 The comparative performance across metrics is plotted in [`results/metrics.png`](metrics.png).

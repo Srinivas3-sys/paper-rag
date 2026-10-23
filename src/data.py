@@ -103,7 +103,7 @@ def create_evaluation_benchmark(
     force: bool = False,
 ) -> List[Dict[str, Any]]:
     """Construct an objective evaluation benchmark of queries mapped to target document IDs.
-    
+
     Creates realistic search queries derived from paper titles and core subject matter.
     """
     if output_path.exists() and not force:

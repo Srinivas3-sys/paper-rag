@@ -55,7 +55,7 @@ class ArxivRAGGenerator:
             context_blocks.append(block)
 
         joined_context = "\n\n".join(context_blocks)
-        
+
         prompt = (
             f"Context:\n{joined_context}\n\n"
             f"Question: {question}\n\n"
