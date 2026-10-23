@@ -53,12 +53,12 @@ A portfolio-grade AI/ML semantic search and retrieval-augmented generation (RAG)
   - [x] Run `./verify.sh` and verify metrics are real and non-empty
   - [x] Commit milestone (`feat: ...`)
 
-- [ ] **Milestone 5: Answer Generation & Citations**
-  - [ ] Implement `src/generator.py` with `google/flan-t5-base`
-  - [ ] Context formatting with `[1]`, `[2]` citation markers and source metadata
-  - [ ] Implement `tests/test_generator.py`
-  - [ ] Run `./verify.sh` and ensure passing
-  - [ ] Commit milestone (`feat: ...`)
+- [x] **Milestone 5: Answer Generation & Citations**
+  - [x] Implement `src/generator.py` with `google/flan-t5-base`
+  - [x] Context formatting with `[1]`, `[2]` citation markers and source metadata
+  - [x] Implement `tests/test_generator.py`
+  - [x] Run `./verify.sh` and ensure passing
+  - [x] Commit milestone (`feat: ...`)
 
 - [ ] **Milestone 6: FastAPI Service**
   - [ ] Implement `src/api.py` with `/health`, `/search`, `/ask`
