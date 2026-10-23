@@ -39,12 +39,12 @@ A portfolio-grade AI/ML semantic search and retrieval-augmented generation (RAG)
   - [x] Run `./verify.sh` and ensure passing
   - [x] Commit milestone (`feat: ...`)
 
-- [ ] **Milestone 3: Indexing & Retrieval Engine**
-  - [ ] Implement `src/index.py` (build and persist BM25 and FAISS indices)
-  - [ ] Implement `src/retrieval.py` (`BM25Retriever`, `DenseRetriever`, `HybridRetriever`)
-  - [ ] Implement `tests/test_retrieval.py`
-  - [ ] Run `./verify.sh` and ensure passing
-  - [ ] Commit milestone (`feat: ...`)
+- [x] **Milestone 3: Indexing & Retrieval Engine**
+  - [x] Implement `src/index.py` (build and persist BM25 and FAISS indices)
+  - [x] Implement `src/retrieval.py` (`BM25Retriever`, `DenseRetriever`, `HybridRetriever`)
+  - [x] Implement `tests/test_retrieval.py`
+  - [x] Run `./verify.sh` and ensure passing
+  - [x] Commit milestone (`feat: ...`)
 
 - [ ] **Milestone 4: Evaluation Benchmark & Metrics**
   - [ ] Implement `src/evaluate.py` (Recall@5, Recall@10, MRR calculation)
