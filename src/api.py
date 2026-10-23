@@ -13,7 +13,13 @@ from src.config import (
     GENERATOR_MODEL_NAME,
 )
 from src.generator import ArxivRAGGenerator
-from src.retrieval import BM25Retriever, DenseRetriever, HybridRetriever, get_retriever
+from src.retrieval import (
+    BM25Retriever,
+    CrossEncoderReranker,
+    DenseRetriever,
+    HybridRetriever,
+    get_retriever,
+)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
@@ -29,11 +35,13 @@ async def lifespan(app: FastAPI):
     try:
         bm25 = BM25Retriever()
         dense = DenseRetriever()
-        hybrid = HybridRetriever(bm25_retriever=bm25, dense_retriever=dense)
+        reranker = CrossEncoderReranker()
+        hybrid = HybridRetriever(bm25_retriever=bm25, dense_retriever=dense, reranker=reranker)
         generator = ArxivRAGGenerator()
 
         state["bm25"] = bm25
         state["dense"] = dense
+        state["reranker"] = reranker
         state["hybrid"] = hybrid
         state["generator"] = generator
         state["doc_count"] = len(dense.docstore) if dense.docstore is not None else 0
@@ -43,6 +51,7 @@ async def lifespan(app: FastAPI):
         logger.warning(f"Could not load full models at startup (indices may need building): {e}")
         state["bm25"] = None
         state["dense"] = None
+        state["reranker"] = None
         state["hybrid"] = None
         state["generator"] = None
         state["doc_count"] = 0
@@ -67,6 +76,7 @@ class SearchRequest(BaseModel):
     query: str = Field(..., description="Technical search query or natural language question")
     retriever_type: str = Field(default="hybrid", description="Retriever architecture: 'bm25', 'dense', or 'hybrid'")
     top_k: int = Field(default=DEFAULT_TOP_K, ge=1, le=50, description="Number of results to retrieve")
+    rerank: bool = Field(default=False, description="Enable cross-encoder reranking over top candidates")
 
 
 class DocumentItem(BaseModel):
@@ -92,6 +102,7 @@ class AskRequest(BaseModel):
     retriever_type: str = Field(default="hybrid", description="Retriever to select: 'bm25', 'dense', or 'hybrid'")
     top_k: int = Field(default=DEFAULT_TOP_K, ge=1, le=10, description="Number of supporting context papers")
     temperature: float = Field(default=0.0, ge=0.0, le=1.0, description="LLM sampling temperature")
+    rerank: bool = Field(default=False, description="Enable cross-encoder reranking over retrieved papers")
 
 
 class CitationItem(BaseModel):
@@ -157,7 +168,10 @@ def search(req: SearchRequest):
         except Exception as e:
             raise HTTPException(status_code=503, detail=f"Retriever indices not available: {e}")
 
-    results = retriever.retrieve(req.query, top_k=req.top_k)
+    if retriever_type == "hybrid":
+        results = retriever.retrieve(req.query, top_k=req.top_k, rerank=req.rerank)
+    else:
+        results = retriever.retrieve(req.query, top_k=req.top_k)
 
     return SearchResponse(
         query=req.query,
@@ -196,7 +210,10 @@ def ask(req: AskRequest):
         except Exception as e:
             raise HTTPException(status_code=503, detail=f"Generator model not available: {e}")
 
-    retrieved_docs = retriever.retrieve(req.question, top_k=req.top_k)
+    if retriever_type == "hybrid":
+        retrieved_docs = retriever.retrieve(req.question, top_k=req.top_k, rerank=req.rerank)
+    else:
+        retrieved_docs = retriever.retrieve(req.question, top_k=req.top_k)
     response = generator.generate_answer(
         question=req.question,
         retrieved_docs=retrieved_docs,

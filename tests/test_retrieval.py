@@ -99,3 +99,69 @@ def test_retrieval_components():
     assert len(res_hybrid) <= 2
     assert res_hybrid[0]["retriever"] == "hybrid"
     assert res_hybrid[0]["score"] > 0
+
+
+class MockCrossEncoder:
+    def predict(self, pairs):
+        # Assign higher score if 'Quantum' is in doc text
+        scores = []
+        for q, doc in pairs:
+            if "Quantum" in doc:
+                scores.append(3.5)
+            elif "Decision" in doc:
+                scores.append(1.2)
+            else:
+                scores.append(-0.5)
+        return scores
+
+
+def test_cross_encoder_reranker_and_hybrid():
+    records = [
+        {"id": "p1", "title": "Quantum Computing", "abstract": "Quantum physics and algorithms.", "authors": "A", "categories": "quant-ph", "combined_text": "Quantum physics and algorithms."},
+        {"id": "p2", "title": "Computer Vision", "abstract": "Image recognition with CNNs.", "authors": "B", "categories": "cs.CV", "combined_text": "Image recognition with CNNs."},
+        {"id": "p3", "title": "Decision Transformers", "abstract": "Decision transformers in RL.", "authors": "C", "categories": "cs.LG", "combined_text": "Decision transformers in RL."},
+    ]
+    df = pd.DataFrame(records)
+
+    tokenized_corpus = [tokenize_text(text) for text in df["combined_text"]]
+    bm25_model = BM25Okapi(tokenized_corpus)
+    bm25_ret = BM25Retriever(bm25=bm25_model, docstore=df)
+
+    mock_model = MockSentenceTransformer(dim=4)
+    embeddings = mock_model.encode(df["combined_text"].tolist(), normalize_embeddings=True)
+    index = faiss.IndexFlatIP(4)
+    index.add(embeddings)
+    dense_ret = DenseRetriever(index=index, docstore=df, model=mock_model)
+
+    from src.retrieval import CrossEncoderReranker
+
+    mock_ce = MockCrossEncoder()
+    reranker = CrossEncoderReranker(model=mock_ce)
+
+    hybrid = HybridRetriever(
+        bm25_retriever=bm25_ret,
+        dense_retriever=dense_ret,
+        reranker=reranker,
+        parallel=True,
+    )
+
+    # Test parallel vs sequential determinism
+    res_parallel = hybrid.retrieve("quantum", top_k=3, rerank=False)
+    hybrid_seq = HybridRetriever(
+        bm25_retriever=bm25_ret,
+        dense_retriever=dense_ret,
+        reranker=reranker,
+        parallel=False,
+    )
+    res_seq = hybrid_seq.retrieve("quantum", top_k=3, rerank=False)
+
+    assert [r["id"] for r in res_parallel] == [r["id"] for r in res_seq]
+    assert [r["score"] for r in res_parallel] == [r["score"] for r in res_seq]
+
+    # Test reranking enabled
+    res_reranked = hybrid.retrieve("quantum", top_k=2, rerank=True, rerank_candidates=3)
+    assert len(res_reranked) == 2
+    assert res_reranked[0]["id"] == "p1"
+    assert res_reranked[0]["retriever"] == "cross-encoder"
+    assert res_reranked[0]["score"] == 3.5
+

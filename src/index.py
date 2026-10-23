@@ -15,6 +15,7 @@ import torch
 
 from src.config import (
     BM25_INDEX_PATH,
+    BM25S_INDEX_DIR,
     DOCSTORE_PATH,
     EMBEDDING_MODEL_NAME,
     FAISS_INDEX_PATH,
@@ -67,6 +68,28 @@ def build_bm25_index(df: pd.DataFrame, output_path=BM25_INDEX_PATH) -> BM25Okapi
     return bm25
 
 
+def build_bm25s_index(df: pd.DataFrame, output_dir=BM25S_INDEX_DIR):
+    """Build and serialize fast mmap bm25s index if library is available."""
+    try:
+        import bm25s
+
+        logger.info(f"Tokenizing {len(df)} documents with bm25s...")
+        corpus = df["combined_text"].tolist()
+        corpus_tokens = bm25s.tokenize(corpus, stopwords="en")
+
+        logger.info("Building bm25s index...")
+        retriever = bm25s.BM25()
+        retriever.index(corpus_tokens)
+
+        output_dir.mkdir(parents=True, exist_ok=True)
+        retriever.save(str(output_dir))
+        logger.info(f"bm25s index successfully saved to {output_dir}")
+        return retriever
+    except ImportError:
+        logger.warning("bm25s not installed, skipping bm25s index build.")
+        return None
+
+
 def build_faiss_dense_index(
     df: pd.DataFrame,
     model_name: str = EMBEDDING_MODEL_NAME,
@@ -116,6 +139,7 @@ def main():
     logger.info(f"Loaded {len(df)} records. Building indices...")
 
     build_bm25_index(df)
+    build_bm25s_index(df)
     build_faiss_dense_index(df)
     logger.info("All indices successfully built and saved.")
 

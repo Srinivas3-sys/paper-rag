@@ -25,6 +25,8 @@ EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL_NAME", "all-MiniLM-L6-v2")
 FAISS_INDEX_PATH = INDICES_DIR / "dense_faiss.index"
 DOCSTORE_PATH = INDICES_DIR / "docstore.parquet"
 BM25_INDEX_PATH = INDICES_DIR / "bm25_index.pkl"
+BM25S_INDEX_DIR = INDICES_DIR / "bm25s"
+RERANKER_MODEL_NAME = os.getenv("RERANKER_MODEL_NAME", "cross-encoder/ms-marco-MiniLM-L-6-v2")
 
 DEFAULT_TOP_K = 5
 HYBRID_ALPHA = 0.6  # Weight for dense retriever in hybrid score (alpha * dense + (1-alpha) * bm25)
