@@ -14,6 +14,7 @@ import pandas as pd
 import torch
 
 from src.config import (
+    BENCHMARK_PATH,
     DOCSTORE_PATH,
     RESULTS_DIR,
 )
@@ -159,7 +160,7 @@ def run_latency_profiling(
 
 def main():
     logger.info("Initializing retrievers and benchmark datasets...")
-    benchmark_path = Path("data/eval_benchmark_360.json")
+    benchmark_path = BENCHMARK_PATH
     with open(benchmark_path, "r", encoding="utf-8") as f:
         benchmark_data = json.load(f)
 

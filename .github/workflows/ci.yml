@@ -40,3 +40,7 @@ jobs:
       - name: Run Lightweight Smoke Test
         run: |
           pytest -v tests/test_smoke_fixture.py
+
+      - name: Verify README Numbers Match Results
+        run: |
+          python3 scripts/check_readme_numbers.py

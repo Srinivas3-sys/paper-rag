@@ -12,15 +12,15 @@ Comprehensive empirical evaluation of sparse (BM25s), dense (MiniLM FAISS), hybr
 
 ## 1. Retrieval Accuracy: Hybrid RRF vs RRF + Cross-Encoder Reranker
 
-Evaluated on the held-out TEST benchmark ($N=222$):
+Evaluated on the held-out TEST benchmark ($N=300$):
 - **Base Hybrid**: RRF with optimal parameters ($k=10, \alpha=0.3$), top-50 sparse + dense candidates.
 - **Reranked Hybrid**: Cross-encoder (`cross-encoder/ms-marco-MiniLM-L-6-v2`) reranking top-30 fused candidates.
 
 | Method | Recall@1 | Recall@5 | Recall@10 | Recall@20 | MRR | nDCG@10 |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Hybrid RRF (Base)** | 0.545 | 0.703 | 0.739 | 0.784 | 0.617 | 0.645 |
-| **Hybrid + Cross-Encoder Rerank** | 0.599 | 0.716 | 0.770 | 0.797 | 0.656 | 0.682 |
-| **Absolute Delta** | +0.054 | +0.014 | +0.032 | +0.014 | +0.038 | +0.037 |
+| **Hybrid RRF (Base)** | 0.547 | 0.723 | 0.757 | 0.787 | 0.622 | 0.653 |
+| **Hybrid + Cross-Encoder Rerank** | 0.600 | 0.737 | 0.777 | 0.807 | 0.661 | 0.687 |
+| **Absolute Delta** | +0.053 | +0.013 | +0.020 | +0.020 | +0.039 | +0.034 |
 
 ---
 
@@ -30,13 +30,13 @@ Timed across 100 queries after 50 warmup iterations:
 
 | Stage | Mean (ms) | p50 / Median (ms) | p95 (ms) | p99 (ms) |
 | :--- | :---: | :---: | :---: | :---: |
-| **Dense Query Encoding** (`all-MiniLM-L6-v2` GPU) | 3.95 | 3.82 | 4.72 | 6.05 |
-| **FAISS Dense Search** (`IndexFlatIP`) | 2.11 | 2.06 | 2.40 | 2.52 |
-| **Sparse BM25 Search** (`bm25s` mmap) | 5.09 | 4.92 | 6.26 | 7.91 |
-| **Hybrid Sequential** (BM25 then Dense) | 14.51 | 14.07 | 17.66 | 20.61 |
-| **Hybrid Parallel** (`ThreadPoolExecutor(2)`) | 15.83 | 15.32 | 20.33 | 23.35 |
-| **Cross-Encoder Reranking** (30 candidates GPU) | 23.01 | 21.49 | 34.16 | 41.09 |
-| **Full Pipeline** (Parallel Hybrid + Reranker) | 38.84 | 37.26 | 53.38 | 57.37 |
+| **Dense Query Encoding** (`all-MiniLM-L6-v2` GPU) | 4.88 | 4.10 | 8.34 | 14.34 |
+| **FAISS Dense Search** (`IndexFlatIP`) | 2.47 | 2.34 | 3.44 | 4.51 |
+| **Sparse BM25 Search** (`bm25s` mmap) | 6.38 | 5.49 | 11.47 | 14.63 |
+| **Hybrid Sequential** (BM25 then Dense) | 16.52 | 14.81 | 25.73 | 30.69 |
+| **Hybrid Parallel** (`ThreadPoolExecutor(2)`) | 19.01 | 16.15 | 32.34 | 43.15 |
+| **Cross-Encoder Reranking** (30 candidates GPU) | 25.05 | 23.62 | 40.06 | 42.45 |
+| **Full Pipeline** (Parallel Hybrid + Reranker) | 44.06 | 42.80 | 63.37 | 77.68 |
 
 ---
 

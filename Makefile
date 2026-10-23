@@ -28,7 +28,10 @@ typecheck:
 test:
 	pytest -v tests/
 
-check: lint typecheck test
+check: lint typecheck test check-numbers
+
+check-numbers:
+	python3 scripts/check_readme_numbers.py
 
 data:
 	python3 -m src.data --sample-size 20000
@@ -37,9 +40,9 @@ index:
 	python3 -m src.index
 
 evaluate:
-	python3 src/evaluate_benchmark.py
-	python3 src/eval_generation.py
-	python3 src/benchmark_retrieval.py
+	PYTHONPATH=. python3 src/evaluate_benchmark.py
+	PYTHONPATH=. python3 src/eval_generation.py
+	PYTHONPATH=. python3 src/benchmark_retrieval.py
 
 api:
 	uvicorn src.api:app --host 0.0.0.0 --port 8000
