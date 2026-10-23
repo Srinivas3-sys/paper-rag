@@ -31,8 +31,8 @@ BM25S_INDEX_DIR = INDICES_DIR / "bm25s"
 RERANKER_MODEL_NAME = os.getenv("RERANKER_MODEL_NAME", "cross-encoder/ms-marco-MiniLM-L-6-v2")
 
 DEFAULT_TOP_K = 5
-HYBRID_ALPHA = 0.6  # Weight for dense retriever in hybrid score (alpha * dense + (1-alpha) * bm25)
-RRF_K = 60         # Reciprocal Rank Fusion constant
+HYBRID_ALPHA = 0.3  # Tuned on DEV split: w_bm25=3.0, w_dense=1.0 -> alpha = 1 / (1 + 3) = 0.25 ~ 0.3
+RRF_K = 10          # Tuned on DEV split (k=10 achieved highest dev MRR 0.6451)
 
 # Generation configuration
 GENERATOR_MODEL_NAME = os.getenv("GENERATOR_MODEL_NAME", "google/flan-t5-base")
