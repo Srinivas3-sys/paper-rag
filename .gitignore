@@ -58,3 +58,6 @@ htmlcov/
 # Environment files
 .env
 .env.local
+
+# Local scratch and notes (never commit)
+.scratch/
