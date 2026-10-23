@@ -2,7 +2,45 @@
 
 from fastapi.testclient import TestClient
 
-from src.api import app
+from src.api import app, state
+
+
+class _DummyRetriever:
+    """Mock retriever used in CI or test environments where disk indices are absent."""
+
+    def retrieve(self, query: str, top_k: int = 5):
+        return [
+            {
+                "id": "mock-paper-001",
+                "title": "Quantum Circuits and Entanglement Theory",
+                "abstract": "A foundational study on quantum circuit optimization.",
+                "authors": "Alice Researcher, Bob Scientist",
+                "categories": "quant-ph",
+                "score": 0.98,
+                "rank": 1,
+                "retriever": "mock",
+            }
+        ]
+
+
+class _DummyGenerator:
+    """Mock generator used in CI or test environments."""
+
+    def generate_answer(self, question: str, retrieved_docs: list, temperature: float = 0.0):
+        return {
+            "question": question,
+            "answer": "Quantum computing utilizes superposition and entanglement [1].",
+            "citations": [
+                {
+                    "citation_id": "[1]",
+                    "paper_id": "mock-paper-001",
+                    "title": "Quantum Circuits and Entanglement Theory",
+                    "authors": "Alice Researcher, Bob Scientist",
+                    "categories": "quant-ph",
+                }
+            ],
+            "retrieved_docs": retrieved_docs,
+        }
 
 
 def test_health_endpoint():
@@ -18,7 +56,9 @@ def test_health_endpoint():
 
 def test_search_endpoint_valid():
     with TestClient(app) as client:
-        # If models are loaded into state
+        if state.get("hybrid") is None:
+            state["hybrid"] = _DummyRetriever()
+
         payload = {
             "query": "quantum circuits and entanglement",
             "retriever_type": "hybrid",
@@ -50,6 +90,11 @@ def test_search_endpoint_invalid_retriever():
 
 def test_ask_endpoint_valid():
     with TestClient(app) as client:
+        if state.get("hybrid") is None:
+            state["hybrid"] = _DummyRetriever()
+        if state.get("generator") is None:
+            state["generator"] = _DummyGenerator()
+
         payload = {
             "question": "What methods are used for quantum computing?",
             "retriever_type": "hybrid",
@@ -63,3 +108,4 @@ def test_ask_endpoint_valid():
         assert "answer" in data
         assert "citations" in data
         assert "retrieved_docs" in data
+
