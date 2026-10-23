@@ -60,11 +60,11 @@ A portfolio-grade AI/ML semantic search and retrieval-augmented generation (RAG)
   - [x] Run `./verify.sh` and ensure passing
   - [x] Commit milestone (`feat: ...`)
 
-- [ ] **Milestone 6: FastAPI Service**
-  - [ ] Implement `src/api.py` with `/health`, `/search`, `/ask`
-  - [ ] Implement `tests/test_api.py`
-  - [ ] Run `./verify.sh` and ensure passing
-  - [ ] Commit milestone (`feat: ...`)
+- [x] **Milestone 6: FastAPI Service**
+  - [x] Implement `src/api.py` with `/health`, `/search`, `/ask`
+  - [x] Implement `tests/test_api.py`
+  - [x] Run `./verify.sh` and ensure passing
+  - [x] Commit milestone (`feat: ...`)
 
 - [ ] **Milestone 7: EDA Notebook, Dockerfile, CI, and Documentation**
   - [ ] Create `notebooks/01_eda_and_retrieval_analysis.ipynb`
