@@ -19,6 +19,8 @@ DATASET_NAME = os.getenv("ARXIV_DATASET_NAME", "gfissore/arxiv-abstracts-2021")
 DATASET_SAMPLE_SIZE = int(os.getenv("ARXIV_SAMPLE_SIZE", "20000"))
 RAW_DATA_PATH = DATA_DIR / f"arxiv_{DATASET_SAMPLE_SIZE}.parquet"
 EVAL_DATA_PATH = DATA_DIR / "eval_queries.json"
+BENCHMARK_PATH = DATA_DIR / "eval_benchmark_450.json"
+LEAKAGE_REPORT_PATH = DATA_DIR / "leakage_report.json"
 
 # Retrieval & Embedding configuration
 EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL_NAME", "all-MiniLM-L6-v2")

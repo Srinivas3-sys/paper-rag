@@ -1,9 +1,9 @@
-"""Construct a rigorous, leakage-free 360-query benchmark across three distinct query regimes:
-1. Lexical queries (easy baseline with term overlap)
-2. Paraphrase queries (semantic conceptual search with zero n-gram leakage)
+"""Construct a rigorous, leakage-free 450-query benchmark across three distinct query regimes:
+1. Lexical queries (natural term overlap from titles and key abstract phrases)
+2. Paraphrase queries (specific technical queries with zero title words and zero n-gram leakage)
 3. Acronym / exact-term queries (domain-specific acronyms, named algorithms, and theorems)
 
-Includes programmatic n-gram leakage auditing and dev/test split partitioning.
+Includes programmatic n-gram leakage auditing and 50 dev / 100 test split partitioning per regime.
 """
 
 import argparse
@@ -18,13 +18,10 @@ import torch
 from tqdm import tqdm
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
-from src.config import DATA_DIR, RAW_DATA_PATH
+from src.config import BENCHMARK_PATH, LEAKAGE_REPORT_PATH, RAW_DATA_PATH
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
-
-BENCHMARK_OUTPUT_PATH = DATA_DIR / "eval_benchmark_360.json"
-LEAKAGE_REPORT_PATH = DATA_DIR / "leakage_report.json"
 
 STOP_WORDS: Set[str] = {
     "a", "about", "above", "after", "again", "against", "all", "am", "an", "and", "any", "are",
@@ -45,6 +42,19 @@ STOP_WORDS: Set[str] = {
     "wouldn't", "you", "you'd", "you'll", "you're", "you've", "your", "yours", "yourself",
     "yourselves", "study", "paper", "author", "authors", "propose", "show", "investigate",
 }
+
+DEGENERATE_PATTERNS = [
+    r"\bmain problem\b",
+    r"\bcore problem\b",
+    r"\bbasic idea\b",
+    r"\bsolution to\b",
+    r"\bthe problem\b",
+    r"\bthis paper\b",
+    r"\bwhat is the problem\b",
+    r"\bhow to solve the problem\b",
+    r"\bwhat is the core\b",
+    r"\bwhat is the main\b",
+]
 
 
 def tokenize_words(text: str) -> List[str]:
@@ -94,19 +104,17 @@ def calculate_leakage(query: str, target_doc: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def build_lexical_queries(df: pd.DataFrame, n: int = 120, seed: int = 42) -> List[Dict[str, Any]]:
+def build_lexical_queries(df: pd.DataFrame, n: int = 150, dev_count: int = 50, seed: int = 42) -> List[Dict[str, Any]]:
     """Build Set A: Lexical queries with natural term overlap from paper titles and abstracts."""
-    logger.info(f"Building {n} Lexical queries...")
+    logger.info(f"Building {n} Lexical queries ({dev_count} dev, {n - dev_count} test)...")
     sample = df.sample(n=n, random_state=seed)
     queries = []
     for i, row in enumerate(sample.itertuples()):
         title = row.title
-        # Natural keyword search: title phrase + key term from abstract
         words = [w for w in tokenize_words(title) if w not in STOP_WORDS]
         query_text = " ".join(words[:7])
 
-        # Add 40/80 dev/test split
-        split = "dev" if i < (n // 3) else "test"
+        split = "dev" if i < dev_count else "test"
         queries.append({
             "query_id": f"lex_{i:04d}",
             "regime": "lexical",
@@ -115,16 +123,16 @@ def build_lexical_queries(df: pd.DataFrame, n: int = 120, seed: int = 42) -> Lis
             "target_doc_id": str(row.id),
             "title": title,
             "abstract_snippet": row.abstract[:200],
+            "categories": str(row.categories),
         })
     return queries
 
 
-def build_acronym_queries(df: pd.DataFrame, n: int = 120, seed: int = 43) -> List[Dict[str, Any]]:
+def build_acronym_queries(df: pd.DataFrame, n: int = 150, dev_count: int = 50, seed: int = 43) -> List[Dict[str, Any]]:
     """Build Set C: Acronym / exact-term queries centered on rare identifiers, acronyms, and theorems."""
-    logger.info("Scanning corpus for papers with distinctive acronyms and named theorems...")
+    logger.info(f"Scanning corpus for {n} papers with distinctive acronyms and named theorems...")
     candidates = []
 
-    # Common words in all-caps to ignore
     noise_caps = {
         "THE", "AND", "FOR", "WITH", "NOT", "ALL", "CAN", "ARE", "BUT", "FROM", "THIS", "THAT",
         "INTO", "OVER", "NEW", "TWO", "ONE", "VIA", "HOW", "NON", "WELL", "SOME", "MORE", "LESS",
@@ -147,12 +155,11 @@ def build_acronym_queries(df: pd.DataFrame, n: int = 120, seed: int = 43) -> Lis
         row, acrs = candidates[idx]
         primary_acronym = acrs[0]
 
-        # Construct focused search query centered on the acronym
         title_words = [w for w in tokenize_words(row.title) if w not in STOP_WORDS and w.lower() != primary_acronym.lower()]
         context_word = title_words[0] if title_words else "analysis"
 
         query_text = f"{primary_acronym} {context_word} methods and properties"
-        split = "dev" if i < (n // 3) else "test"
+        split = "dev" if i < dev_count else "test"
 
         queries.append({
             "query_id": f"acro_{i:04d}",
@@ -163,27 +170,48 @@ def build_acronym_queries(df: pd.DataFrame, n: int = 120, seed: int = 43) -> Lis
             "title": row.title,
             "abstract_snippet": row.abstract[:200],
             "acronym": primary_acronym,
+            "categories": str(row.categories),
         })
     return queries
 
 
+def clean_paraphrase_query(text: str) -> str:
+    """Strip conversational conversational boilerplate from model output."""
+    clean_q = re.sub(
+        r"^(we\s+study|we\s+investigate|we\s+have\s+studied|we\s+present|the\s+purpose\s+of\s+this\s+paper\s+is\s+to|in\s+this\s+paper\s+we)\s+",
+        "",
+        text,
+        flags=re.IGNORECASE,
+    )
+    clean_q = re.sub(
+        r"^(a\s+description\s+of|an\s+investigation\s+into|a\s+study\s+of|an\s+analysis\s+of)\s+",
+        "",
+        clean_q,
+        flags=re.IGNORECASE,
+    )
+    clean_q = re.sub(r"[\"?]", "", clean_q)
+    clean_q = re.sub(r"\s+", " ", clean_q).strip()
+    return clean_q
+
+
 def build_paraphrase_queries(
     df: pd.DataFrame,
-    n: int = 120,
+    n: int = 150,
+    dev_count: int = 50,
     seed: int = 44,
     device: str = "cuda" if torch.cuda.is_available() else "cpu",
-    batch_size: int = 16,
+    batch_size: int = 32,
 ) -> List[Dict[str, Any]]:
-    """Build Set B: Paraphrase queries with strictly zero n-gram leakage against target paper."""
+    """Build Set B: Specific technical paraphrase queries with strictly zero n-gram leakage."""
     logger.info(f"Loading local generator model for paraphrase generation on {device}...")
     tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-base")
     model = AutoModelForSeq2SeqLM.from_pretrained("google/flan-t5-base").to(device)
     model.eval()
 
-    sample_pool = df.sample(n=n * 4, random_state=seed).copy()
+    sample_pool = df.sample(n=min(n * 20, len(df)), random_state=seed).copy()
     queries: List[Dict[str, Any]] = []
 
-    logger.info(f"Generating paraphrase queries with zero-leakage constraints in batches of {batch_size}...")
+    logger.info(f"Generating {n} specific paraphrase queries in batches of {batch_size}...")
     pbar = tqdm(total=n, desc="Generating Paraphrase Queries")
 
     rows = list(sample_pool.itertuples())
@@ -197,20 +225,18 @@ def build_paraphrase_queries(
         for row in batch_rows:
             title = row.title
             abstract = row.abstract
-            first_sentence = abstract.split(".")[0] if "." in abstract else abstract
-            remaining_abstract = abstract[len(first_sentence):].strip()
-            if len(remaining_abstract.split()) < 30:
-                remaining_abstract = abstract
 
-            title_words = [w for w in tokenize_words(title) if w not in STOP_WORDS]
-            forbidden_str = ", ".join(title_words[:6])
+            title_words = [w for w in tokenize_words(title) if w not in STOP_WORDS and len(w) > 3]
+            forbidden_str = ", ".join(title_words)
+
+            sentences = [s.strip() for s in abstract.split(".") if len(s.strip()) > 20]
+            context_snippet = ". ".join(sentences[1:3]) if len(sentences) >= 3 else abstract[:350]
 
             prompt = (
-                f"Generate a concise search question describing the core problem below. "
-                f"You MUST NOT use these words: {forbidden_str}. "
-                f"Do not copy exact phrases.\n\n"
-                f"Topic: {remaining_abstract[:350]}\n\n"
-                f"Search Question:"
+                f"Generate a technical search question for the following research topic. "
+                f"Do not use these words: {forbidden_str}.\n\n"
+                f"Topic: {context_snippet[:350]}\n\n"
+                f"Question:"
             )
             prompts.append(prompt)
             valid_batch_items.append(row)
@@ -221,7 +247,7 @@ def build_paraphrase_queries(
                 **inputs,
                 max_new_tokens=40,
                 do_sample=True,
-                temperature=0.7,
+                temperature=0.6,
                 top_p=0.9,
             )
 
@@ -229,13 +255,19 @@ def build_paraphrase_queries(
         for row, raw_query in zip(valid_batch_items, decoded):
             if len(queries) >= n:
                 break
-            clean_q = re.sub(r"[\"?]", "", raw_query).strip()
-            if len(clean_q.split()) < 4:
+            clean_q = clean_paraphrase_query(raw_query)
+
+            words = clean_q.split()
+            if len(words) < 5 or len(words) > 30:
+                continue
+
+            # Reject prompt boilerplate parroting
+            if any(re.search(pat, clean_q, re.I) for pat in DEGENERATE_PATTERNS):
                 continue
 
             leakage = calculate_leakage(clean_q, {"title": row.title, "abstract": row.abstract, "combined_text": row.combined_text})
             if leakage["bigram_overlap_count"] == 0 and len(leakage["title_overlap_words"]) == 0:
-                split = "dev" if len(queries) < (n // 3) else "test"
+                split = "dev" if len(queries) < dev_count else "test"
                 queries.append({
                     "query_id": f"para_{len(queries):04d}",
                     "regime": "paraphrase",
@@ -244,34 +276,36 @@ def build_paraphrase_queries(
                     "target_doc_id": str(row.id),
                     "title": row.title,
                     "abstract_snippet": row.abstract[:200],
+                    "categories": str(row.categories),
                     "leakage_audit": leakage,
                 })
                 pbar.update(1)
 
     pbar.close()
-    logger.info(f"Successfully generated {len(queries)} zero-leakage paraphrase queries.")
+    logger.info(f"Successfully generated {len(queries)} specific zero-leakage paraphrase queries.")
     return queries
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Build 360-query multi-regime evaluation benchmark.")
-    parser.add_argument("--queries-per-set", type=int, default=120, help="Queries per regime")
+    parser = argparse.ArgumentParser(description="Build 450-query multi-regime evaluation benchmark.")
+    parser.add_argument("--queries-per-set", type=int, default=150, help="Total queries per regime (50 dev, 100 test)")
+    parser.add_argument("--dev-count", type=int, default=50, help="Dev queries per regime")
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
-    parser.add_argument("--output", type=str, default=str(BENCHMARK_OUTPUT_PATH), help="Output benchmark path")
+    parser.add_argument("--output", type=str, default=str(BENCHMARK_PATH), help="Output benchmark path")
     args = parser.parse_args()
 
     logger.info(f"Loading raw arXiv dataset from {RAW_DATA_PATH}...")
     df = pd.read_parquet(RAW_DATA_PATH)
 
     n_per_set = args.queries_per_set
-    lexical_queries = build_lexical_queries(df, n=n_per_set, seed=args.seed)
-    acronym_queries = build_acronym_queries(df, n=n_per_set, seed=args.seed + 1)
-    paraphrase_queries = build_paraphrase_queries(df, n=n_per_set, seed=args.seed + 2)
+    dev_count = args.dev_count
+    lexical_queries = build_lexical_queries(df, n=n_per_set, dev_count=dev_count, seed=args.seed)
+    acronym_queries = build_acronym_queries(df, n=n_per_set, dev_count=dev_count, seed=args.seed + 1)
+    paraphrase_queries = build_paraphrase_queries(df, n=n_per_set, dev_count=dev_count, seed=args.seed + 2)
 
     all_queries = lexical_queries + paraphrase_queries + acronym_queries
     logger.info(f"Total benchmark queries created: {len(all_queries)}")
 
-    # Audit full leakage statistics
     leakage_records = []
     for item in all_queries:
         target_row = df[df["id"] == item["target_doc_id"]].iloc[0]
@@ -287,7 +321,6 @@ def main():
             "audit": audit,
         })
 
-    # Summary leakage report
     summary = {
         "total_queries": len(all_queries),
         "regimes": {
