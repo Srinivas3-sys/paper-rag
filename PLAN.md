@@ -32,12 +32,12 @@ A portfolio-grade AI/ML semantic search and retrieval-augmented generation (RAG)
   - [x] Implement `verify.sh` self-correction test harness
   - [x] Initialize git repo, commit scaffolding
 
-- [ ] **Milestone 2: Data Ingestion & Preprocessing**
-  - [ ] Implement `src/config.py` for centralized paths and hyperparams
-  - [ ] Implement `src/data.py` (download ~20k arXiv abstracts, clean, preprocess, create evaluation queries)
-  - [ ] Implement `tests/test_data.py`
-  - [ ] Run `./verify.sh` and ensure passing
-  - [ ] Commit milestone (`feat: ...`)
+- [x] **Milestone 2: Data Ingestion & Preprocessing**
+  - [x] Implement `src/config.py` for centralized paths and hyperparams
+  - [x] Implement `src/data.py` (download ~20k arXiv abstracts, clean, preprocess, create evaluation queries)
+  - [x] Implement `tests/test_data.py`
+  - [x] Run `./verify.sh` and ensure passing
+  - [x] Commit milestone (`feat: ...`)
 
 - [ ] **Milestone 3: Indexing & Retrieval Engine**
   - [ ] Implement `src/index.py` (build and persist BM25 and FAISS indices)
