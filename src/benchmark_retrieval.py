@@ -6,7 +6,6 @@ bm25s vs rank-bm25, cross-encoder reranking, and truncation analysis.
 import json
 import logging
 import time
-from pathlib import Path
 from typing import Any, Dict, List
 
 import numpy as np

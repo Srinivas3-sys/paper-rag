@@ -42,31 +42,38 @@ def verify_numbers():
     # 1. Check Strict Metrics in results/metrics.md
     # Extract BM25, Dense, Hybrid lines from results/metrics.md
     results_strict = {}
+    current_section = None
     for line in metrics_text.splitlines():
-        if "| **BM25 Baseline** |" in line:
-            parts = [p.strip() for p in line.split("|") if p.strip()]
-            results_strict["bm25"] = {
-                "r1": parse_float(parts[1]),
-                "r5": parse_float(parts[2]),
-                "r10": parse_float(parts[3]),
-                "mrr": parse_float(parts[5]),
-            }
-        elif "| **Dense (MiniLM+FAISS)** |" in line:
-            parts = [p.strip() for p in line.split("|") if p.strip()]
-            results_strict["dense"] = {
-                "r1": parse_float(parts[1]),
-                "r5": parse_float(parts[2]),
-                "r10": parse_float(parts[3]),
-                "mrr": parse_float(parts[5]),
-            }
-        elif "| **Hybrid (RRF Optimal)** |" in line:
-            parts = [p.strip() for p in line.split("|") if p.strip()]
-            results_strict["hybrid"] = {
-                "r1": parse_float(parts[1]),
-                "r5": parse_float(parts[2]),
-                "r10": parse_float(parts[3]),
-                "mrr": parse_float(parts[5]),
-            }
+        if "## 1. Overall Held-Out Test Set Performance" in line:
+            current_section = "strict"
+        elif "## 2. Overall Held-Out Test Set Performance" in line:
+            current_section = "lenient"
+
+        if current_section == "strict":
+            if "| **BM25 Baseline** |" in line:
+                parts = [p.strip() for p in line.split("|") if p.strip()]
+                results_strict["bm25"] = {
+                    "r1": parse_float(parts[1]),
+                    "r5": parse_float(parts[2]),
+                    "r10": parse_float(parts[3]),
+                    "mrr": parse_float(parts[5]),
+                }
+            elif "| **Dense (MiniLM+FAISS)** |" in line:
+                parts = [p.strip() for p in line.split("|") if p.strip()]
+                results_strict["dense"] = {
+                    "r1": parse_float(parts[1]),
+                    "r5": parse_float(parts[2]),
+                    "r10": parse_float(parts[3]),
+                    "mrr": parse_float(parts[5]),
+                }
+            elif "| **Hybrid (RRF Optimal)** |" in line:
+                parts = [p.strip() for p in line.split("|") if p.strip()]
+                results_strict["hybrid"] = {
+                    "r1": parse_float(parts[1]),
+                    "r5": parse_float(parts[2]),
+                    "r10": parse_float(parts[3]),
+                    "mrr": parse_float(parts[5]),
+                }
 
     # Extract matching lines from README.md
     for line in readme_text.splitlines():
@@ -93,8 +100,8 @@ def verify_numbers():
                 if diff_mrr > 0.005:
                     discrepancies.append(f"Hybrid MRR mismatch: README={mrr_readme:.3f} vs results={results_strict['hybrid']['mrr']:.3f}")
 
-    # Check N=300 and N=450 mentions
-    if "N=300" in metrics_text and "N=300" not in readme_text and "300 held-out" not in readme_text:
+    # Check N=300 mentions
+    if "N=300" in metrics_text and not any(kw in readme_text for kw in ["N=300", "300 held-out", "300 Held-Out", "300 queries"]):
         discrepancies.append("README.md does not clearly state the 300 held-out test split size (N=300).")
 
     if discrepancies:
