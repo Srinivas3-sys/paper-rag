@@ -45,10 +45,10 @@ evaluate:
 	PYTHONPATH=. python3 src/benchmark_retrieval.py
 
 api:
-	uvicorn src.api:app --host 0.0.0.0 --port 8000
+	PYTHONPATH=. uvicorn src.api:app --host 0.0.0.0 --port 8000
 
 api-dev:
-	uvicorn src.api:app --host 0.0.0.0 --port 8000 --reload
+	PYTHONPATH=. uvicorn src.api:app --host 0.0.0.0 --port 8000 --reload
 
 docker-build:
 	docker build -t paper-rag:latest .

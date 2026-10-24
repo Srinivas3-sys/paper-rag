@@ -1,5 +1,5 @@
 # Multi-stage Dockerfile for paper-rag production service
-FROM python:3.11-slim as base
+FROM python:3.11-slim AS base
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
